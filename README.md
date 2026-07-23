@@ -2,7 +2,7 @@
 
 ## 프로젝트 구조
 - `public/index.html`: 프론트엔드 UI 및 로직
-- `api/generate.js`: Gemini 2.5 Flash API를 활용한 급식표 이미지 분석 Serverless Function
+- `api/generate.js`: gemini-3.1-flash-lite API를 활용한 급식표 이미지 분석 Serverless Function
 - `package.json`: 의존성 설정
 
 ## 배포 및 사용 방법
