@@ -1,56 +1,59 @@
+import { GoogleGenAI } from '@google/genai';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { context, message, tone } = req.body;
+  const { imageBase64, mimeType } = req.body;
 
-  if (!message) {
-    return res.status(400).json({ error: '답장할 메세지를 입력해주세요.' });
+  if (!imageBase64) {
+    return res.status(400).json({ error: '이미지 데이터가 필요합니다.' });
   }
 
+  // 환경변수에서 GEMINI_API_KEY 읽기
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: '서버에 GEMINI_API_KEY가 설정되어 있지 않습니다.' });
   }
 
-  const prompt = `
-당신은 메세지 답장을 전문적으로 작성해 주는 AI 비서입니다.
-아래 정보를 바탕으로 가장 자연스럽고 적절한 답장 메세지 단 하나만 작성해 주세요.
-
-[상황 설명]: ${context || '없음'}
-[받은 메세지]: ${message}
-[요청 말투]: ${tone || '기본 (정중하고 친절함)'}
-
-[답장 작성 조건]:
-- 인사말과 본문을 자연스럽게 구성해 주세요.
-- 요청된 말투(${tone})의 어조를 철저히 지켜주세요.
-- 불필요한 부연 설명 없이, 바로 사용할 수 있는 답장 메세지 본문만 출력해 주세요.
-  `;
-
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      }
-    );
+    const ai = new GoogleGenAI({ apiKey });
 
-    const data = await response.json();
+    const prompt = `
+      이 이미지는 학교 급식표입니다. 
+      메뉴 이름 옆이나 괄호 안에 표기된 식단 알레르기 유발물질 번호(숫자)들을 모두 찾아주세요.
+      응답은 오직 숫자를 요소로 가지는 JSON 배열 형식으로만 출력해주세요. 
+      예시: [1, 5, 12, 18]
+    `;
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Gemini API 호출 오류');
-    }
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                data: imageBase64.split(',')[1] || imageBase64,
+                mimeType: mimeType || 'image/jpeg',
+              },
+            },
+          ],
+        },
+      ],
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
 
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return res.status(200).json({ reply });
+    const resultText = response.text;
+    const detectedNumbers = JSON.parse(resultText);
 
+    return res.status(200).json({ numbers: detectedNumbers });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: '답장을 생성하는 중 오류가 발생했습니다.' });
+    console.error('Gemini API Error:', error);
+    return res.status(500).json({ error: 'Gemini API 처리 중 오류가 발생했습니다.' });
   }
 }
