@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 메세지 답장 도우미</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    body { background-color: #f4f6f8; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .container { width: 100%; max-width: 600px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    h1 { margin-top: 0; color: #333; font-size: 24px; text-align: center; }
+    .form-group { margin-bottom: 20px; }
+    label { font-weight: bold; display: block; margin-bottom: 8px; color: #555; font-size: 14px; }
+    input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+    input:focus, textarea:focus, select:focus { border-color: #4A60EA; }
+    textarea { resize: vertical; height: 90px; }
+    button { width: 100%; padding: 14px; background-color: #4A60EA; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background-color: #3b4ecc; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    .result-box { margin-top: 25px; padding: 15px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; display: none; }
+    .result-box.active { display: block; }
+    .result-content { white-space: pre-wrap; font-size: 15px; color: #222; margin-top: 10px; line-height: 1.6; }
+    .copy-btn { background-color: #6c757d; margin-top: 12px; padding: 10px; font-size: 14px; }
+    .copy-btn:hover { background-color: #5a6268; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>💬 AI 답장 도우미</h1>
+
+  <div class="form-group">
+    <label for="context">1. 상황 설명 (선택)</label>
+    <input type="text" id="context" placeholder="예: 약속 시간에 10분 정도 늦을 것 같음">
+  </div>
+
+  <div class="form-group">
+    <label for="message">2. 받은 메세지 (필수)</label>
+    <textarea id="message" placeholder="상대방이 보낸 메세지를 입력하세요."></textarea>
+  </div>
+
+  <div class="form-group">
+    <label for="tone">3. 필요한 말투</label>
+    <select id="tone">
+      <option value="정중하고 예의 바르게">정중하고 예의 바르게</option>
+      <option value="사무적이고 간결하게">사무적이고 간결하게</option>
+      <option value="친근하고 싹싹하게">친근하고 싹싹하게</option>
+      <option value="부드럽게 거절하기">부드럽게 거절하기</option>
+      <option value="솔직하고 유쾌하게">솔직하고 유쾌하게</option>
+    </select>
+  </div>
+
+  <button id="generateBtn" onclick="generateReply()">답장 생성하기</button>
+
+  <div id="resultBox" class="result-box">
+    <label>✨ AI가 추천하는 답장:</label>
+    <div id="replyResult" class="result-content"></div>
+    <button class="copy-btn" onclick="copyToClipboard()">복사하기</button>
+  </div>
+</div>
+
+<script>
+  async function generateReply() {
+    const context = document.getElementById('context').value;
+    const message = document.getElementById('message').value;
+    const tone = document.getElementById('tone').value;
+    const btn = document.getElementById('generateBtn');
+    const resultBox = document.getElementById('resultBox');
+    const replyResult = document.getElementById('replyResult');
+
+    if (!message.trim()) {
+      alert('받은 메세지를 입력해 주세요!');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '답장 작성 중...';
+    resultBox.classList.remove('active');
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context, message, tone })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        replyResult.textContent = data.reply;
+        resultBox.classList.add('active');
+      } else {
+        alert('오류: ' + (data.error || '답장 생성 실패'));
+      }
+    } catch (err) {
+      alert('서버와 통신 중 문제가 발생했습니다.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '답장 생성하기';
+    }
+  }
+
+  function copyToClipboard() {
+    const text = document.getElementById('replyResult').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('답장이 클립보드에 복사되었습니다!');
+    });
+  }
+</script>
+
+</body>
+</html>
